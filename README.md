@@ -14,7 +14,7 @@ Provides a standalone CLI framework featuring:
 
 - 4 lines of code to get your CLI working
 
-- For a detailed example executable, checkout [example-executable.php](https://github.com/schilffarth/dependency-injection/blob/master/example/example-executable.php)
+- For a detailed example executable, checkout [example-executable.php](https://github.com/schilffarth/command-line-interface/blob/master/example/example-executable.php)
 
 Example code implementation:
 
