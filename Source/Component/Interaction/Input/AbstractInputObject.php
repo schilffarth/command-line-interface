@@ -27,7 +27,7 @@ class AbstractInputObject
     }
 
     /**
-     * The input object is created with @see InputFactory::create
+     * The input object is created with @see InputFactory::create()
      */
     public function create(): void {}
 
@@ -37,6 +37,14 @@ class AbstractInputObject
     public function request(): void
     {
         $this->value = $this->nextLine();
+    }
+
+    /**
+     * Retrieve the value of the input
+     */
+    public function getValue(): string
+    {
+        return $this->value;
     }
 
     /**
