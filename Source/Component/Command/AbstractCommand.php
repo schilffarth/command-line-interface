@@ -15,6 +15,7 @@ use Schilffarth\CommandLineInterface\{
     Source\Component\Argument\Types\GlobalArgument,
     Source\Component\Interaction\Input\InputFactory,
     Source\Component\Interaction\Output\Output,
+    Source\Component\Interaction\Output\OutputFactory,
     Source\State
 };
 use Schilffarth\Exception\Handling\ErrorHandler;
@@ -47,6 +48,7 @@ abstract class AbstractCommand
     protected $errorHandler;
     protected $inputFactory;
     protected $output;
+    protected $outputFactory;
 
     public function __construct(
         App $app,
@@ -54,7 +56,8 @@ abstract class AbstractCommand
         ArgumentHelper $argumentHelper,
         ErrorHandler $errorHandler,
         InputFactory $inputFactory,
-        Output $output
+        Output $output,
+        OutputFactory $outputFactory
     ) {
         $this->app = $app;
         $this->argumentFactory = $argumentFactory;
@@ -62,6 +65,7 @@ abstract class AbstractCommand
         $this->errorHandler = $errorHandler;
         $this->inputFactory = $inputFactory;
         $this->output = $output;
+        $this->outputFactory = $outputFactory;
     }
 
     /**

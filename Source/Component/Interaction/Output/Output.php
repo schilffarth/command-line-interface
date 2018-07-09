@@ -6,7 +6,9 @@
 
 namespace Schilffarth\CommandLineInterface\Source\Component\Interaction\Output;
 
-use Schilffarth\CommandLineInterface\Source\State;
+use Schilffarth\CommandLineInterface\{
+    Source\State
+};
 
 class Output
 {
@@ -46,8 +48,9 @@ class Output
      * The command will highlight all registered colors with their mapped colors
      * @see Output::colors
      * @see Output::parseMessage()
+     * @return self|string
      */
-    public function write(string $message, int $verbosity = self::NORMAL, bool $nl = false): self
+    public function write(string $message, int $verbosity = self::NORMAL, bool $nl = false, bool $return = false)
     {
         if ($this->verbosityDisallowsOutput($verbosity)) {
             // The message should not be outputted in the current verbosity level
@@ -56,6 +59,10 @@ class Output
 
         // Replace colors, such as <info></info> with the mapped color attribute in $this->colors
         $message = $this->dissect($message);
+
+        if ($return) {
+            return $message;
+        }
 
         echo $message;
 

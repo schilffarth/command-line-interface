@@ -9,6 +9,8 @@ namespace Schilffarth\CommandLineInterface\Source\Component\Interaction\Output;
 class AbstractOutputObject
 {
 
-    // todo Code this class
+    public function create()
+    {
+    }
 
 }

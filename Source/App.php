@@ -86,7 +86,7 @@ class App
         $this->argv = $argv;
 
         if (strncmp(strtoupper(PHP_OS), 'WIN', 3) === 0) {
-            $this->output->writeln('Warning: CLI application run on windows might not support colored output! You can use --disable-colors');
+            $this->output->writeln('Warning: CLI application run on windows might not support colored output! You can use --color-disable');
         }
 
         // Initialize all commands
@@ -196,12 +196,9 @@ class App
         // Everything at COMMAND-scope
         $this->defineRunCommand();
         $this->exec->initCommandArgs();
-        // todo See changes
         foreach ($this->exec->arguments as &$argument) {
             $this->registerArgument($argument);
         }
-
-
 
         try {
             $this->validateArguments();

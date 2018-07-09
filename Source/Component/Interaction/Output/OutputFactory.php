@@ -7,12 +7,13 @@
 namespace Schilffarth\CommandLineInterface\Source\Component\Interaction\Output;
 
 use Schilffarth\CommandLineInterface\{
-    Source\AbstractFactory
+    Source\AbstractFactory,
+    Source\Component\Interaction\Output\Types\GridOutput
 };
 
 class OutputFactory extends AbstractFactory
 {
 
-    // todo Implement output objects
+    public const OUTPUT_GRID = GridOutput::class;
 
 }
