@@ -34,9 +34,11 @@ class AbstractInputObject
     /**
      * Use this function to display your input object in the console and retrieve the user input
      */
-    public function request(): void
+    public function request(): self
     {
         $this->value = $this->nextLine();
+
+        return $this;
     }
 
     /**
