@@ -6,14 +6,19 @@
 
 namespace Schilffarth\CommandLineInterface\Source\Component\Argument;
 
-use Schilffarth\CommandLineInterface\Source\App;
-use Schilffarth\CommandLineInterface\Source\Component\Interaction\Output\Output;
+use Schilffarth\CommandLineInterface\{
+    Source\App,
+    Source\Component\Interaction\Output\Output
+};
 
 class ArgumentHelper
 {
 
+    /**
+     * Used for "grid"-style output on argument help message
+     * This will be moved to a separate output object
+     */
     public const PAD_LENGTH_ARGUMENT = 30;
-
     public const PAD_LENGTH_ALIAS = 20;
 
     /**

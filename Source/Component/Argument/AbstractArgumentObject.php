@@ -18,7 +18,7 @@ use Schilffarth\CommandLineInterface\{
  *
  * Please note that arguments are always supposed to start with double hyphens: --
  * If the argument starts with a single hyphen, it is assumed to be an alias for a valid and registered argument
- * For sticking to this convention and not confusing anyone, use @see ArgumentHelper::trimProperty
+ * For sticking to this convention and not confusing anyone, use @see ArgumentHelper::trimProperty()
  */
 abstract class AbstractArgumentObject
 {
@@ -102,7 +102,7 @@ abstract class AbstractArgumentObject
     }
 
     /**
-     * Initialize / build up your argument - This method is only called if $this->passed is set to TRUE
+     * Initialize / build up your argument - $this->passed is set before launch is called
      * With this function you can introduce special logic for your argument, such as complex type handling
      * For an example @see ComplexArgument::launch()
      */

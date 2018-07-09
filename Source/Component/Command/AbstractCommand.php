@@ -12,11 +12,12 @@ use Schilffarth\CommandLineInterface\{
     Source\Component\Argument\AbstractArgumentObject,
     Source\Component\Argument\ArgumentFactory,
     Source\Component\Argument\ArgumentHelper,
-    Source\Component\Argument\Types\SimpleArgument,
+    Source\Component\Argument\Types\GlobalArgument,
     Source\Component\Interaction\Input\InputFactory,
     Source\Component\Interaction\Output\Output,
     Source\State
 };
+use Schilffarth\Exception\Handling\ErrorHandler;
 
 /**
  * Extend this class and define your command by the given properties.
@@ -43,6 +44,7 @@ abstract class AbstractCommand
     protected $app;
     protected $argumentFactory;
     protected $argumentHelper;
+    protected $errorHandler;
     protected $inputFactory;
     protected $output;
 
@@ -50,12 +52,14 @@ abstract class AbstractCommand
         App $app,
         ArgumentFactory $argumentFactory,
         ArgumentHelper $argumentHelper,
+        ErrorHandler $errorHandler,
         InputFactory $inputFactory,
         Output $output
     ) {
         $this->app = $app;
         $this->argumentFactory = $argumentFactory;
         $this->argumentHelper = $argumentHelper;
+        $this->errorHandler = $errorHandler;
         $this->inputFactory = $inputFactory;
         $this->output = $output;
     }
@@ -72,7 +76,7 @@ abstract class AbstractCommand
     public function initAppArgs(): void
     {
         /** COLORED OUTPUT - Whether to display console colored output */
-        /** @var SimpleArgument $disableColoredOutput */
+        /** @var GlobalArgument $disableColoredOutput */
         $disableColoredOutput = $this->argumentFactory->create(
             ArgumentFactory::ARGUMENT_GLOBAL,
             'color-disable',
@@ -83,7 +87,7 @@ abstract class AbstractCommand
         $this->setArgument($disableColoredOutput, -99);
 
         /** HELP */
-        /** @var SimpleArgument $help */
+        /** @var GlobalArgument $help */
         $help = $this->argumentFactory->create(
             ArgumentFactory::ARGUMENT_GLOBAL,
             'help',
@@ -95,7 +99,7 @@ abstract class AbstractCommand
         $this->setArgument($help, -98);
 
         /** VERBOSITY LEVELS */
-        /** @var SimpleArgument $debug */
+        /** @var GlobalArgument $debug */
         // Debug
         $debug = $this->argumentFactory->create(
             ArgumentFactory::ARGUMENT_GLOBAL,
@@ -106,7 +110,7 @@ abstract class AbstractCommand
         $debug->registerHandler([$this, 'setVerbosityDebug'])
             ->excludes('quiet');
         $this->setArgument($debug);
-        /** @var SimpleArgument $quiet */
+        /** @var GlobalArgument $quiet */
         // Quiet
         $quiet = $this->argumentFactory->create(
             ArgumentFactory::ARGUMENT_GLOBAL,
@@ -241,7 +245,9 @@ abstract class AbstractCommand
         $name = $this->getArgKeyByProperty('name', $this->argumentHelper->trimProperty($name));
 
         if (!isset($this->arguments[$name])) {
-            throw new ArgumentNotFoundException(sprintf('%s could not be found as a registered argument. Please make sure you do not have any typos.', $name));
+            throw new ArgumentNotFoundException(
+                sprintf('%s could not be found as a registered argument. Please make sure you do not have any typos.', $name)
+            );
         }
 
         return $this->arguments[$name];
