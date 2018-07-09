@@ -4,7 +4,15 @@
  * @license     https://opensource.org/licenses/GPL-3.0 General Public License (GNU 3.0)
  */
 
-namespace Schilffarth\CommandLineInterface\Source\Component\Argument;
+namespace Schilffarth\CommandLineInterface\Source\Component\Argument\Types;
+
+use Schilffarth\CommandLineInterface\{
+    Source\App,
+    Source\Component\Argument\AbstractArgumentObject,
+    Source\Component\Argument\ArgumentHelper,
+    Source\Component\Interaction\Input\InputFactory,
+    Source\Component\Interaction\Output\Output
+};
 
 /**
  * ComplexArgument arguments represent options that need to take a value, initialized by the users input
@@ -24,27 +32,54 @@ class ComplexArgument extends AbstractArgumentObject
     /**
      * If the argument is passed, this variable holds the initialized value
      */
-    public $value = '';
+    protected $value = '';
+
+    private $inputFactory;
+
+    public function __construct(
+        App $app,
+        ArgumentHelper $argumentHelper,
+        Output $output,
+        InputFactory $inputFactory
+    ) {
+        parent::__construct($app, $argumentHelper, $output);
+
+        $this->inputFactory = $inputFactory;
+    }
 
     public function launch(array &$argv): void
     {
         if ($this->required && !$this->passed) {
             $this->output->error(sprintf('Argument %s is required but not specified!', $this->name));
-            exit;
+            $this->output->comment($this->description);
+
+            $input = $this->inputFactory->create(InputFactory::INPUT_LABELED, '<comment>Please specify the value...</comment>');
+            $this->value = $input->request()->getValue();
+            $this->passed = true;
+
+            return;
         }
 
         if (!$this->passed) {
             return;
         }
 
-        $value = array_shift($argv);
+        $valueKey = $this->consoleArgvKey + 1;
+        $value = $argv[$valueKey] ?? null;
+
         if ($value === null) {
-            // todo Create an InputObject that will let the user specify the arguments value
             $this->output->error(sprintf('No value specified for argument %s', $this->name));
             exit;
         }
 
+        unset($argv[$valueKey]);
+
         $this->value = $value;
+    }
+
+    public function getValue(): string
+    {
+        return $this->value;
     }
 
 }

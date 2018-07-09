@@ -4,14 +4,18 @@
  * @license     https://opensource.org/licenses/GPL-3.0 General Public License (GNU 3.0)
  */
 
-namespace Schilffarth\CommandLineInterface\Source\Command;
+namespace Schilffarth\CommandLineInterface\Source\Component\Command;
 
 use Schilffarth\CommandLineInterface\{
+    Exceptions\ArgumentNotFoundException,
     Source\App,
     Source\Component\Argument\AbstractArgumentObject,
     Source\Component\Argument\ArgumentFactory,
+    Source\Component\Argument\ArgumentHelper,
+    Source\Component\Argument\Types\SimpleArgument,
     Source\Component\Interaction\Input\InputFactory,
-    Source\Component\Interaction\Output\Output
+    Source\Component\Interaction\Output\Output,
+    Source\State
 };
 
 /**
@@ -36,27 +40,25 @@ abstract class AbstractCommand
      */
     public $arguments = [];
 
+    protected $app;
     protected $argumentFactory;
+    protected $argumentHelper;
     protected $inputFactory;
     protected $output;
 
     public function __construct(
+        App $app,
         ArgumentFactory $argumentFactory,
+        ArgumentHelper $argumentHelper,
         InputFactory $inputFactory,
         Output $output
     ) {
+        $this->app = $app;
         $this->argumentFactory = $argumentFactory;
+        $this->argumentHelper = $argumentHelper;
         $this->inputFactory = $inputFactory;
         $this->output = $output;
     }
-
-    /**
-     * Register arguments and associated handlers
-     * For example usage @see AbstractCommand::setDefaultArgs()
-     *
-     * This method is run BEFORE arguments or commands are processed or triggered
-     */
-    abstract public function init(): void;
 
     /**
      * This method is run AFTER arguments and commands are processed or triggered
@@ -64,14 +66,15 @@ abstract class AbstractCommand
     abstract public function run(): bool;
 
     /**
-     * Register default arguments
-     * For defining custom default arguments, use @see AbstractCommand::init()
+     * Register arguments and associated handlers for APP scope
+     * This method is run BEFORE command-specific arguments or commands themselves are processed or triggered
      */
-    public function setDefaultArgs(): void
+    public function initAppArgs(): void
     {
         /** COLORED OUTPUT - Whether to display console colored output */
+        /** @var SimpleArgument $disableColoredOutput */
         $disableColoredOutput = $this->argumentFactory->create(
-            ArgumentFactory::ARGUMENT_SIMPLE,
+            ArgumentFactory::ARGUMENT_GLOBAL,
             'color-disable',
             'Disable colors displayed with the console output. Recommended for Windows PowerShell.'
         );
@@ -80,8 +83,9 @@ abstract class AbstractCommand
         $this->setArgument($disableColoredOutput, -99);
 
         /** HELP */
+        /** @var SimpleArgument $help */
         $help = $this->argumentFactory->create(
-            ArgumentFactory::ARGUMENT_SIMPLE,
+            ArgumentFactory::ARGUMENT_GLOBAL,
             'help',
             'Get detailed help for the command. Displays further information and example usages.',
             'h'
@@ -91,9 +95,10 @@ abstract class AbstractCommand
         $this->setArgument($help, -98);
 
         /** VERBOSITY LEVELS */
+        /** @var SimpleArgument $debug */
         // Debug
         $debug = $this->argumentFactory->create(
-            ArgumentFactory::ARGUMENT_SIMPLE,
+            ArgumentFactory::ARGUMENT_GLOBAL,
             'debug',
             'Enable debugging. Displays all messages.',
             'd'
@@ -101,9 +106,10 @@ abstract class AbstractCommand
         $debug->registerHandler([$this, 'setVerbosityDebug'])
             ->excludes('quiet');
         $this->setArgument($debug);
+        /** @var SimpleArgument $quiet */
         // Quiet
         $quiet = $this->argumentFactory->create(
-            ArgumentFactory::ARGUMENT_SIMPLE,
+            ArgumentFactory::ARGUMENT_GLOBAL,
             'quiet',
             'Suppress both normal and debugging messages. Only errors will be outputted.',
             'q'
@@ -114,29 +120,27 @@ abstract class AbstractCommand
     }
 
     /**
+     * Register arguments and associated handlers for COMMAND scope
+     */
+    public function initCommandArgs(): void
+    {
+    }
+
+    /**
      * Callback if --help is passed
      */
     public function triggerHelp(): void
     {
-        $this->output->info($this->command)->nl();
+        $this->output->nl()->writeln('Command arguments:')->nl();
 
         foreach ($this->arguments as $argument) {
-            // Display detailed help for the command
-            $aliasesStr = '';
-
-            foreach ($argument->aliases as $alias) {
-                $aliasesStr .= "  " . $alias;
-            }
-
-            // Supposed to be a grid ;-)
-            $this->output->writeln(
-                str_pad($argument->name, App::PAD_LENGTH['arguments'])
-                . "\t" . str_pad($aliasesStr, App::PAD_LENGTH['aliases'])
-                . "\t" . $argument->description
-            );
+            $this->argumentHelper->argumentGridRow($argument);
         }
 
+        $this->argumentHelper->outputAppScopeArgumentsHelp();
+
         // Do not run any
+        State::$success = true;
         exit;
     }
 
@@ -145,7 +149,7 @@ abstract class AbstractCommand
      */
     public function setVerbosityDebug(): void
     {
-        $this->output->verbosity = Output::DEBUG;
+        State::$verbosity = Output::DEBUG;
     }
 
     /**
@@ -153,7 +157,7 @@ abstract class AbstractCommand
      */
     public function setVerbosityQuiet(): void
     {
-        $this->output->verbosity = Output::QUIET;
+        State::$verbosity = Output::QUIET;
     }
 
     /**
@@ -161,7 +165,7 @@ abstract class AbstractCommand
      */
     public function disableColoredOutput(): void
     {
-        $this->output->colorDisabled = true;
+        State::$colorDisabled = true;
     }
 
     /**
@@ -204,16 +208,24 @@ abstract class AbstractCommand
      */
     protected function setArgument(AbstractArgumentObject $arg, int $order = null): self
     {
+        if ($arg->isScopeApp()) {
+            $arg->argContainer = &App::$appArguments;
+        } else {
+            $arg->argContainer = &$this->arguments;
+        }
+
+        $arg->command = $this;
+
         if ($order === null) {
             // Just apply argument to the end
-            $this->arguments[] = $arg;
+            $arg->argContainer[] = $arg;
         } else {
-            if (isset($this->arguments[$order])) {
+            if (isset($arg->argContainer[$order])) {
                 $this->error(sprintf('Cannot initialize argument %s properly ordered as %d. The given order has already been set.', $arg->name, $order));
-                $this->arguments[] = $arg;
+                $arg->argContainer[] = $arg;
             } else {
                 // Add argument at desired order
-                $this->arguments[$order] = $arg;
+                $arg->argContainer[$order] = $arg;
             }
         }
 
@@ -222,13 +234,14 @@ abstract class AbstractCommand
 
     /**
      * Retrieve an argument by its name
+     * @throws ArgumentNotFoundException
      */
     protected function getArgument(string $name): AbstractArgumentObject
     {
-        $name = $this->getArgKeyByProperty('name', AbstractArgumentObject::trimProperty($name));
+        $name = $this->getArgKeyByProperty('name', $this->argumentHelper->trimProperty($name));
 
         if (!isset($this->arguments[$name])) {
-            $this->error(sprintf('%s could not be found as a registered argument. Please make sure you do not have any typos.', $name));
+            throw new ArgumentNotFoundException(sprintf('%s could not be found as a registered argument. Please make sure you do not have any typos.', $name));
         }
 
         return $this->arguments[$name];
@@ -236,11 +249,18 @@ abstract class AbstractCommand
 
     /**
      * Remove / kill / destroy an argument
-     * Should be used in @see AbstractCommand::init() only
      */
     protected function destroyArgument(string $name): self
     {
-        unset($this->arguments[$this->getArgKeyByProperty('name', AbstractArgumentObject::trimProperty($name))]);
+        $trimmedName = $this->argumentHelper->trimProperty($name);
+        $key = $this->getArgKeyByProperty('name', $trimmedName);
+
+        if ($key === false) {
+            $this->output->error(sprintf('Argument %s is not set and cannot be destroyed!', $trimmedName));
+            exit;
+        } else {
+            unset($this->arguments[$key]);
+        }
 
         return $this;
     }

@@ -7,7 +7,9 @@
 namespace Schilffarth\CommandLineInterface\Source;
 
 use Schilffarth\CommandLineInterface\{
-    Source\Command\AbstractCommand,
+    Exceptions\ArgumentNotFoundException,
+    Source\Component\Argument\ArgumentHelper,
+    Source\Component\Command\AbstractCommand,
     Source\Component\Argument\AbstractArgumentObject,
     Source\Component\Interaction\Output\Output
 };
@@ -21,21 +23,20 @@ use Schilffarth\Exception\{
 class App
 {
 
-    const PAD_LENGTH = [
-        'commands' => 50,
-        'arguments' => 30,
-        'aliases' => 15
-    ];
+    public const PAD_LENGTH_COMMAND = 50;
 
     /**
-     * Used to calculate the duration of script execution
+     * These arguments are treated as global arguments
+     * They are processed and validated even before the run command is determined (example: --help)
+     * @var AbstractArgumentObject[]
      */
-    private $startTime = 0;
+    public static $appArguments = [];
 
     /**
-     * Whether the command has run successfully
+     * The called command
+     * @var AbstractCommand
      */
-    private $success = false;
+    public $exec;
 
     /**
      * Include paths to check in order to create a list of all available commands
@@ -51,29 +52,29 @@ class App
     private $commands = [];
 
     /**
-     * The called command
-     * @var AbstractCommand
-     */
-    private $exec;
-
-    /**
      * Console args
      * @var string[]
      */
     private $argv;
 
+    private $argumentHelper;
     private $errorHandler;
     private $output;
     private $objectManager;
+    private $state;
 
     public function __construct(
+        ArgumentHelper $argumentHelper,
         ErrorHandler $errorHandler,
         Output $output,
-        ObjectManager $objectManager
+        ObjectManager $objectManager,
+        State $state
     ) {
+        $this->argumentHelper = $argumentHelper;
         $this->errorHandler = $errorHandler;
         $this->output = $output;
         $this->objectManager = $objectManager;
+        $this->state = $state;
     }
 
     /**
@@ -82,23 +83,24 @@ class App
     public function execute(array $argv): void
     {
         register_shutdown_function([$this, 'end']);
-        $this->startTime = microtime(true);
         $this->argv = $argv;
 
         if (strncmp(strtoupper(PHP_OS), 'WIN', 3) === 0) {
-            $this->output->comment('Warning: CLI application run on windows might not support colored output! You can use --disable-colors');
+            $this->output->writeln('Warning: CLI application run on windows might not support colored output! You can use --disable-colors');
         }
 
         // Initialize all commands
         $this->initializeCommands();
         // Initialize arguments for the called command
         $this->initializeArguments();
-        // Run all initialized arguments
+        // Trigger all initialized arguments, APP-scope first
+        $this->triggerAppArgs();
+        // Run all initialized arguments on COMMAND-scope
         $this->exec->triggerArguments();
 
         // Execute the command
         if ($this->exec->run()) {
-            $this->success = true;
+            State::$success = true;
         }
     }
 
@@ -128,21 +130,13 @@ class App
      */
     public function end(): void
     {
-        if ($this->success) {
-            $this->output->nl(2)->info('Success after ' . $this->getExecutionDuration());
+        if (State::$success) {
+            $this->output->nl()->info('Success after ' . $this->state->getExecutionDuration(), Output::QUIET);
         } else {
-            $this->output->nl(2)->error('Failure after ' . $this->getExecutionDuration());
+            $this->output->nl()->error('Failure after ' . $this->state->getExecutionDuration());
         }
 
         exit;
-    }
-
-    /**
-     * How long the script has run yet (in seconds)
-     */
-    public function getExecutionDuration(): string
-    {
-        return round(microtime(true) - $this->startTime, 3) . ' seconds';
     }
 
     /**
@@ -178,37 +172,61 @@ class App
     }
 
     /**
-     * Initialize the arguments that have been passed to the console
+     * Initialize the arguments that have been passed to the console and create all available args from each commands
      */
     private function initializeArguments(): void
     {
         if (empty($this->argv)) {
             $this->output->error('No command desired to be run.');
             $this->listRegisteredCommands();
-            $this->success = true;
+            State::$success = true;
             exit;
         }
 
+        $this->splitAliases();
+
+        // Process all commands on APP-scope
+        foreach ($this->commands as $command) {
+            $command->initAppArgs();
+        }
+        foreach (self::$appArguments as &$argument) {
+            $this->registerArgument($argument);
+        }
+
+        // Everything at COMMAND-scope
+        $this->defineRunCommand();
+        $this->exec->initCommandArgs();
+        // todo See changes
+        foreach ($this->exec->arguments as &$argument) {
+            $this->registerArgument($argument);
+        }
+
+
+
+        try {
+            $this->validateArguments();
+        } catch (\Exception $e) {
+            $this->errorHandler->exit($e);
+        }
+
+        if (!empty($this->argv)) {
+            $this->output->error('The following argument(s) could not be resolved:');
+            foreach ($this->argv as $arg) {
+                $this->output->writeln($arg, Output::QUIET);
+            }
+        }
+    }
+
+    /**
+     * The run command is stored in @see App::exec
+     */
+    private function defineRunCommand(): void
+    {
         // First entry is always supposed to be the run command
         $command = array_shift($this->argv);
 
         if (isset($this->commands[$command])) {
             $this->exec = $this->commands[$command];
-            $this->exec->setDefaultArgs();
-
-            // Let the command do stuff that needs to be done before the passed console arguments are processed
-            $this->exec->init();
-
-            $this->registerArguments();
-            $this->validateArguments();
-            $this->launchArguments();
-
-            if (!empty($this->argv)) {
-                $this->output->error('The following argument(s) could not be resolved:');
-                foreach ($this->argv as $arg) {
-                    $this->output->writeln($arg);
-                }
-            }
         } else {
             $this->output->error(sprintf('Command "%s" not found.', $command));
             $this->listRegisteredCommands();
@@ -217,29 +235,52 @@ class App
     }
 
     /*
-     * Process and register command args
+     * Process and register single argument
      */
-    private function registerArguments(): void
+    private function registerArgument(AbstractArgumentObject &$argument): void
     {
-        foreach ($this->exec->arguments as $argument) {
-            $scans = [$argument->name];
+        $scans = [$argument->name];
 
-            foreach ($argument->aliases as $alias) {
-                $scans[] = $alias;
+        foreach ($argument->aliases as $alias) {
+            $scans[] = $alias;
+        }
+
+        foreach ($scans as $scan) {
+            // Scan whether the argument has been passed
+            $found = array_search($scan, $this->argv, true);
+            if ($found !== false) {
+                if ($argument->passed) {
+                    // Argument is passed multiple times
+                    $this->output->error(sprintf('Argument %s is passed more than once. Please make sure your command does not contain any typos.', $argument->name));
+                    exit;
+                }
+
+                $argument->passed = true;
+                $argument->consoleArgvKey = $found;
+                unset($this->argv[$found]);
             }
+        }
 
-            foreach ($scans as $scan) {
-                // Scan whether the argument has been passed
-                $found = array_search($scan, $this->argv, true);
-                if ($found !== false) {
-                    if ($argument->passed) {
-                        // Argument is passed multiple times
-                        $this->output->error(sprintf('Argument %s is passed more than once. Please make sure your command does not contain any typos.', $argument->name));
-                        exit;
-                    }
+        $argument->launch($this->argv);
+    }
 
-                    $argument->passed = true;
-                    unset($this->argv[$found]);
+    /**
+     * If combined aliases have been passed, split and register them as each single alias and unset original combined
+     * alias
+     */
+    private function splitAliases(): void
+    {
+        foreach ($this->argv as $key => $arg) {
+            if ($this->argumentHelper->argIsAlias($arg) && strlen($arg) > 2) {
+                // It's a combined alias, such as -dh, it will be split to separate arguments -d -h
+                $sequences = str_split($arg);
+
+                // First entry is the hyphen / alias identifier
+                unset($sequences[0]);
+                unset($this->argv[$key]);
+
+                foreach ($sequences as $sequence) {
+                    $this->argv[] = $this->argumentHelper->trimProperty($sequence, ArgumentHelper::STR_LEN_ALIAS);
                 }
             }
         }
@@ -248,9 +289,9 @@ class App
     /**
      * Check requires / excludes / dependencies for the arguments
      * For more information:
-     *
      * @see AbstractArgumentObject::requires()
      * @see AbstractArgumentObject::excludes()
+     * @throws ArgumentNotFoundException
      */
     private function validateArguments(): void
     {
@@ -262,11 +303,12 @@ class App
             foreach ($argument->excludes as $excl) {
                 $exists = $this->exec->getArgKeyByProperty('name', $excl);
                 if ($exists === false) {
-                    $this->output->error(sprintf('Exclude %s for %s is not a valid argument.', $excl, $argument->name));
-                    exit;
+                    throw new ArgumentNotFoundException(
+                        sprintf('Exclude %s for %s is not a valid argument.', $excl, $argument->name)
+                    );
                 }
                 if ($this->exec->arguments[$exists]->passed) {
-                    $this->output->error(sprintf('Cannot set both %s and %s! The arguments exclude each other.', $excl, $argument->name));
+                    $this->output->error(sprintf('Argument %s excludes argument %s, cannot set both.', $excl, $argument->name));
                     exit;
                 }
             }
@@ -274,25 +316,23 @@ class App
             foreach ($argument->requires as $req) {
                 $exists = $this->exec->getArgKeyByProperty('name', $req);
                 if ($exists === false) {
-                    $this->output->error(sprintf('Require %s for %s is not a valid argument.', $excl, $argument->name));
-                    exit;
+                    throw new ArgumentNotFoundException(
+                        sprintf('Require %s for %s is not a valid argument.', $req, $argument->name)
+                    );
                 }
                 if (!$this->exec->arguments[$exists]->passed) {
-                    $this->output->error(sprintf('%s requires %s.', $argument->name, $req));
+                    $this->output->error(sprintf('Argument %s requires argument %s to be passed.', $argument->name, $req));
                     exit;
                 }
             }
         }
     }
 
-    /**
-     * Launch all arguments that have been passed and validated
-     */
-    private function launchArguments(): void
+    private function triggerAppArgs(): void
     {
-        foreach ($this->exec->arguments as $argument) {
+        foreach (self::$appArguments as &$argument) {
             if ($argument->passed) {
-                $argument->launch($this->argv);
+                $argument->trigger();
             }
         }
     }
@@ -302,11 +342,13 @@ class App
      */
     private function listRegisteredCommands(): void
     {
-        $this->output->nl()->writeln('Here is a list of all available commands:')->nl();
+        $this->output->nl()->writeln('Available commands:')->nl();
 
         foreach ($this->commands as $command => $instance) {
-            $this->output->writeln(str_pad(sprintf('<info>%s</info>', $command), self::PAD_LENGTH['commands']) . $instance->help);
+            $this->output->writeln(str_pad(sprintf('<info>%s</info>', $command), self::PAD_LENGTH_COMMAND) . $instance->help, Output::QUIET);
         }
+
+        $this->argumentHelper->outputAppScopeArgumentsHelp();
     }
 
 }

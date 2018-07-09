@@ -6,31 +6,20 @@
 
 namespace Schilffarth\CommandLineInterface\Source\Component\Argument;
 
-use Schilffarth\DependencyInjection\{
-    Source\ObjectManager
+use Schilffarth\CommandLineInterface\{
+    Source\AbstractFactory,
+    Source\Component\Argument\Types\ComplexArgument,
+    Source\Component\Argument\Types\GlobalArgument,
+    Source\Component\Argument\Types\SimpleArgument
 };
 
-class ArgumentFactory
+class ArgumentFactory extends AbstractFactory
 {
 
-    const ARGUMENT_SIMPLE = SimpleArgument::class;
-    const ARGUMENT_COMPLEX = ComplexArgument::class;
+    public const ARGUMENT_SIMPLE = SimpleArgument::class;
 
-    private $objectManager;
+    public const ARGUMENT_COMPLEX = ComplexArgument::class;
 
-    public function __construct(
-        ObjectManager $objectManager
-    ) {
-        $this->objectManager = $objectManager;
-    }
-
-    public function create(string $type, ...$args): AbstractArgumentObject
-    {
-        /** @var AbstractArgumentObject $object */
-        $object = $this->objectManager->createObject($type);
-        $object->create(...$args);
-
-        return $object;
-    }
+    public const ARGUMENT_GLOBAL = GlobalArgument::class;
 
 }

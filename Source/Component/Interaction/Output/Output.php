@@ -6,34 +6,25 @@
 
 namespace Schilffarth\CommandLineInterface\Source\Component\Interaction\Output;
 
+use Schilffarth\CommandLineInterface\Source\State;
+
 class Output
 {
 
     /**
      * Output is always displayed, even when --quiet is active
      */
-    const QUIET = 1;
+    public const QUIET = 1;
 
     /**
      * Default output level
      */
-    const NORMAL = 2;
+    public const NORMAL = 2;
 
     /**
      * Verbose information, displayed when --verbose is active
      */
-    const DEBUG = 3;
-
-    /**
-     * The current verbosity level for the run command
-     * @see Output::verbosityDisallowsOutput()
-     */
-    public $verbosity = self::NORMAL;
-
-    /**
-     * Whether to color / highlight output dependent on message level or not
-     */
-    public $colorDisabled = false;
+    public const DEBUG = 3;
 
     /**
      * Codes for colored console output, allows custom colors to be registered
@@ -133,10 +124,11 @@ class Output
      */
     public function verbosityDisallowsOutput(int $verbosity): bool
     {
-        if ($this->verbosity >= $verbosity) {
+        if (State::$verbosity >= $verbosity) {
             // Output
             return false;
         }
+
         // Suppress message
         return true;
     }
@@ -153,7 +145,6 @@ class Output
 
     /**
      * Remove all registered colors from the given string
-     *
      * @see Output::colors
      */
 
@@ -173,8 +164,8 @@ class Output
      */
     private function dissect(string $str): string
     {
-        if ($this->colorDisabled) {
-            // Disable colored output, for example when run on Windows Powershell
+        if (State::$colorDisabled) {
+            // Disable colored output
             $str = $this->removeTags($str);
         } else {
             // Highlight message

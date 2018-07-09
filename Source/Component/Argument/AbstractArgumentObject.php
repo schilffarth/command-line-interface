@@ -7,6 +7,9 @@
 namespace Schilffarth\CommandLineInterface\Source\Component\Argument;
 
 use Schilffarth\CommandLineInterface\{
+    Source\App,
+    Source\Component\Argument\Types\ComplexArgument,
+    Source\Component\Command\AbstractCommand,
     Source\Component\Interaction\Output\Output
 };
 
@@ -14,21 +17,23 @@ use Schilffarth\CommandLineInterface\{
  * Create an argument object, including its handlers
  *
  * Please note that arguments are always supposed to start with double hyphens: --
- * If the argument starts with a single hyphen, it is assumed to be an alias for an valid and registered argument
- * For sticking to this convention and not confusing anyone, use AbstractArgumentObject::trimProperty
+ * If the argument starts with a single hyphen, it is assumed to be an alias for a valid and registered argument
+ * For sticking to this convention and not confusing anyone, use @see ArgumentHelper::trimProperty
  */
 abstract class AbstractArgumentObject
 {
 
     /**
-     * Used for unified and consistent format of @see AbstractArgumentObject::name
+     * Command where this argument is initialized for
+     * @var AbstractCommand
      */
-    const STR_CODE = 2;
+    public $command;
 
     /**
-     * Used for unified and consistent format for each alias of @see AbstractArgumentObject::aliases
+     * Command object this argument has been defined at, usually same as @see App::exec
+     * @var AbstractArgumentObject[]
      */
-    const STR_ALIAS = 1;
+    public $argContainer = [];
 
     /**
      * The name / code of the argument
@@ -64,46 +69,36 @@ abstract class AbstractArgumentObject
     public $passed = false;
 
     /**
+     * If the argument is passed, this property is set to the argument's key of the global $argv array
+     */
+    public $consoleArgvKey = 0;
+
+    /**
+     * Scope of the argument, arguments bound to the app scope will be processed before the desired command is
+     * determined or any other arguments are processed
+     * Examples: Output verbosity levers (--quiet, --debug), --help
+     */
+    protected $scope = ArgumentHelper::ARGUMENT_SCOPE_COMMAND;
+
+    /**
      * Contains all registered callbacks
      * Handlers will be called one by one, unless a priority has been defined
      * @var callable[]
      */
     private $handler = [];
 
-    public $output;
+    protected $app;
+    protected $argumentHelper;
+    protected $output;
 
     public function __construct(
+        App $app,
+        ArgumentHelper $argumentHelper,
         Output $output
     ) {
+        $this->app = $app;
+        $this->argumentHelper = $argumentHelper;
         $this->output = $output;
-    }
-
-    /**
-     * Argument is created with @see ArgumentFactory::create()
-     */
-    public function create(string $name, string $description, string ...$aliases)
-    {
-        $this->name = self::trimProperty($name);
-        $this->description = $description;
-        foreach ($aliases as $alias) {
-            $this->aliases[] = self::trimProperty($alias, self::STR_ALIAS);
-        }
-    }
-
-    /**
-     * Retrieve codes for argument aliases and names without applying preceding hyphens yourself
-     * This method provides unified and consistent format for both aliases and argument names
-     */
-    public static function trimProperty(string $name, int $type = self::STR_CODE): string
-    {
-        if ($type === self::STR_CODE) {
-            $pre = '--';
-        } else {
-            // $type === self::STR_ALIAS
-            $pre = '-';
-        }
-
-        return strncmp($name, $pre, $type) === 0 ? $name : $pre . $name;
     }
 
     /**
@@ -112,6 +107,30 @@ abstract class AbstractArgumentObject
      * For an example @see ComplexArgument::launch()
      */
     abstract public function launch(array &$argv): void;
+
+    /**
+     * Argument should be created with @see ArgumentFactory::create()
+     * Aliases must match size of 1 character (excluding hyphen char)
+     */
+    public function create(string $name, string $description, string ...$aliases)
+    {
+        $this->name = $this->argumentHelper->trimProperty($name);
+        $this->description = $description;
+
+        foreach ($aliases as $alias) {
+            $trimmedAlias = $this->argumentHelper->trimProperty($alias, ArgumentHelper::STR_LEN_ALIAS);
+
+            if (strlen($trimmedAlias) > 2) {
+                $this->output->error(sprintf('Failed to create argument %s. Passed alias %s exceeds maximum size of one character (excluding hyphen identifier).', $this->name, $trimmedAlias));
+                exit;
+            } elseif (strlen($trimmedAlias) < 2) {
+                $this->output->error(sprintf('Failed to create argument %s. Passed alias %s must match size of one character (excluding hyphen identifier).', $this->name, $trimmedAlias));
+                exit;
+            }
+
+            $this->aliases[] = $trimmedAlias;
+        }
+    }
 
     /**
      * Register a function that is called whenever the argument is supplied
@@ -139,7 +158,7 @@ abstract class AbstractArgumentObject
      */
     public function excludes(string $argName): self
     {
-        $this->excludes[] = self::trimProperty($argName);
+        $this->excludes[] = $this->argumentHelper->trimProperty($argName);
 
         return $this;
     }
@@ -149,7 +168,7 @@ abstract class AbstractArgumentObject
      */
     public function requires(string $argName): self
     {
-        $this->requires[] = self::trimProperty($argName);
+        $this->requires[] = $this->argumentHelper->trimProperty($argName);
 
         return $this;
     }
@@ -162,6 +181,30 @@ abstract class AbstractArgumentObject
         foreach ($this->handler as $handle) {
             call_user_func($handle);
         }
+    }
+
+    /**
+     * Whether the arguments scope is APP or COMMAND
+     */
+    public function isScopeApp(): bool
+    {
+        return $this->scope === ArgumentHelper::ARGUMENT_SCOPE_APP;
+    }
+
+    /**
+     * Retrieve the arguments container (app or command scoped)
+     */
+    public function getArgContainer(): array
+    {
+        if (!$this->argContainer) {
+            if ($this->isScopeApp()) {
+                $this->argContainer = &App::$appArguments;
+            } else {
+                $this->argContainer = &$this->command->arguments;
+            }
+        }
+
+        return $this->argContainer;
     }
 
 }
