@@ -18,7 +18,9 @@ use Schilffarth\CommandLineInterface\{
     Source\Component\Interaction\Output\OutputFactory,
     Source\State
 };
-use Schilffarth\Exception\Handling\ErrorHandler;
+use Schilffarth\Exception\{
+    Handling\ErrorHandler
+};
 
 /**
  * Extend this class and define your command by the given properties.
@@ -80,6 +82,7 @@ abstract class AbstractCommand
     public function initAppArgs(): void
     {
         /** COLORED OUTPUT - Whether to display console colored output */
+
         /** @var GlobalArgument $disableColoredOutput */
         $disableColoredOutput = $this->argumentFactory->create(
             ArgumentFactory::ARGUMENT_GLOBAL,
@@ -91,6 +94,7 @@ abstract class AbstractCommand
         $this->setArgument($disableColoredOutput, -99);
 
         /** HELP */
+
         /** @var GlobalArgument $help */
         $help = $this->argumentFactory->create(
             ArgumentFactory::ARGUMENT_GLOBAL,
@@ -103,6 +107,7 @@ abstract class AbstractCommand
         $this->setArgument($help, -98);
 
         /** VERBOSITY LEVELS */
+
         /** @var GlobalArgument $debug */
         // Debug
         $debug = $this->argumentFactory->create(
@@ -114,6 +119,7 @@ abstract class AbstractCommand
         $debug->registerHandler([$this, 'setVerbosityDebug'])
             ->excludes('quiet');
         $this->setArgument($debug);
+
         /** @var GlobalArgument $quiet */
         // Quiet
         $quiet = $this->argumentFactory->create(
@@ -139,12 +145,14 @@ abstract class AbstractCommand
      */
     public function triggerHelp(): void
     {
-        $this->output->nl()->writeln('Command arguments:')->nl();
+        $grid = $this->argumentHelper->createArgumentGrid();
 
         foreach ($this->arguments as $argument) {
-            $this->argumentHelper->argumentGridRow($argument);
+            $this->argumentHelper->argumentGridRow($argument, $grid);
         }
 
+        $this->output->nl()->info('Command arguments:')->nl();
+        $grid->display();
         $this->argumentHelper->outputAppScopeArgumentsHelp();
 
         // Do not run any
@@ -216,24 +224,35 @@ abstract class AbstractCommand
      */
     protected function setArgument(AbstractArgumentObject $arg, int $order = null): self
     {
+        // Saved just to provide more ease in extending this even more in possible future updates - Do not remove this
+        // (as it's obviously unnecessary right now, you could access it in line 242 straight with $this->>command
+        $arg->command = $this->command;
+
+        // Get the container for given argument
         if ($arg->isScopeApp()) {
-            $arg->argContainer = &App::$appArguments;
+            $container = &App::$appArguments;
+
+            foreach (App::$appArguments as $argument) {
+                if ($argument->name === $arg->name) {
+                    // The argument has already been registered, skip it
+                    return $this;
+                }
+            }
         } else {
-            $arg->argContainer = &$this->arguments;
+            $container = &App::$commands[$arg->command]->arguments;
         }
 
-        $arg->command = $this;
-
+        // Set arg
         if ($order === null) {
             // Just apply argument to the end
-            $arg->argContainer[] = $arg;
+            $container[] = $arg;
         } else {
-            if (isset($arg->argContainer[$order])) {
+            if (isset($container[$order])) {
                 $this->error(sprintf('Cannot initialize argument %s properly ordered as %d. The given order has already been set.', $arg->name, $order));
-                $arg->argContainer[] = $arg;
+                $container[] = $arg;
             } else {
                 // Add argument at desired order
-                $arg->argContainer[$order] = $arg;
+                $container[$order] = $arg;
             }
         }
 

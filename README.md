@@ -54,9 +54,7 @@ $app->execute($argv);
 
 ### Releases
 
-- 1.0.0
-
-First release
+Current release 1.0.0, but be careful, it is used for development. Do not use this repository in any projects yet! Thank you.
 
 ### Requirements
 

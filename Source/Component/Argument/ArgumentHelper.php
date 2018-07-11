@@ -8,7 +8,9 @@ namespace Schilffarth\CommandLineInterface\Source\Component\Argument;
 
 use Schilffarth\CommandLineInterface\{
     Source\App,
-    Source\Component\Interaction\Output\Output
+    Source\Component\Interaction\Output\Output,
+    Source\Component\Interaction\Output\OutputFactory,
+    Source\Component\Interaction\Output\Types\GridOutput
 };
 
 class ArgumentHelper
@@ -16,10 +18,9 @@ class ArgumentHelper
 
     /**
      * Used for "grid"-style output on argument help message
-     * This will be moved to a separate output object
      */
-    public const PAD_LENGTH_ARGUMENT = 30;
-    public const PAD_LENGTH_ALIAS = 20;
+    public const PAD_LENGTH_ARGUMENT = 20;
+    public const PAD_LENGTH_ALIAS = 10;
 
     /**
      * Arguments defined at scope APP will be processed before any command-related stuff is done
@@ -43,11 +44,14 @@ class ArgumentHelper
     public const STR_LEN_ALIAS = 1;
 
     private $output;
+    private $outputFactory;
 
     public function __construct(
-        Output $output
+        Output $output,
+        OutputFactory $outputFactory
     ) {
         $this->output = $output;
+        $this->outputFactory = $outputFactory;
     }
 
     /**
@@ -83,33 +87,53 @@ class ArgumentHelper
      */
     public function outputAppScopeArgumentsHelp(): void
     {
-        $this->output->nl()->writeln('Console options:')->nl();
+        $grid = $this->createArgumentGrid();
 
         foreach (App::$appArguments as $argument) {
-            $this->argumentGridRow($argument);
+            $grid = $this->argumentGridRow($argument, $grid);
         }
+
+        $this->output->nl()->info('Console options:')->nl();
+        $grid->display();
     }
 
     /**
-     * todo Move this output style to an output object
+     * Create the basic grid structure for an argument table
+     */
+    public function createArgumentGrid(): GridOutput
+    {
+        /** @var GridOutput $grid */
+        $grid = $this->outputFactory->create(OutputFactory::OUTPUT_GRID);
+
+        $grid->addColumn('name', 'Argument', self::PAD_LENGTH_ARGUMENT)
+            ->addColumn('aliases', 'Aliases', self::PAD_LENGTH_ALIAS)
+            ->addColumn('description', 'Description')
+            ->suppressColumnLabels()
+            ->addColorScheme('name', 'comment', '')
+            ->addColorScheme('aliases', 'comment', '')
+            ->addColorScheme('description', 'comment', '');
+
+        return $grid;
+    }
+
+    /**
      * Outputs a line in the argument-grid-style
      */
-    public function argumentGridRow(AbstractArgumentObject $argument): void
+    public function argumentGridRow(AbstractArgumentObject $argument, GridOutput $grid): GridOutput
     {
-        $aliasesStr = "\t";
+        $aliasesStr = '';
 
         foreach ($argument->aliases as $alias) {
-            $aliasesStr .= '  ' . $alias;
+            $aliasesStr .= $alias . '  ';
         }
 
-        $aliasesStr .= "\t";
+        $grid->addRow([
+            'name' => $argument->name,
+            'aliases' => $aliasesStr,
+            'description' => $argument->description
+        ]);
 
-        // Supposed to be a grid ;-)
-        $this->output->writeln(
-            str_pad(sprintf('<info>%s</info>', $argument->name), self::PAD_LENGTH_ARGUMENT)
-            . str_pad($aliasesStr, self::PAD_LENGTH_ALIAS)
-            . $argument->description
-        );
+        return $grid;
     }
 
 }

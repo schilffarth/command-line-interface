@@ -8,10 +8,12 @@ namespace Schilffarth\CommandLineInterface\Source;
 
 use Schilffarth\CommandLineInterface\{
     Exceptions\ArgumentNotFoundException,
+    Source\Component\Argument\AbstractArgumentObject,
     Source\Component\Argument\ArgumentHelper,
     Source\Component\Command\AbstractCommand,
-    Source\Component\Argument\AbstractArgumentObject,
-    Source\Component\Interaction\Output\Output
+    Source\Component\Interaction\Output\Output,
+    Source\Component\Interaction\Output\OutputFactory,
+    Source\Component\Interaction\Output\Types\GridOutput
 };
 use Schilffarth\DependencyInjection\{
     Source\ObjectManager
@@ -23,7 +25,10 @@ use Schilffarth\Exception\{
 class App
 {
 
-    public const PAD_LENGTH_COMMAND = 50;
+    /**
+     * Used for "grid"-style output on command list
+     */
+    public const PAD_LENGTH_COMMAND = 25;
 
     /**
      * These arguments are treated as global arguments
@@ -31,6 +36,12 @@ class App
      * @var AbstractArgumentObject[]
      */
     public static $appArguments = [];
+
+    /**
+     * All initialized commands @see App::initializeCommands()
+     * @var AbstractCommand[]
+     */
+    public static $commands = [];
 
     /**
      * The called command
@@ -46,12 +57,6 @@ class App
     private $includes = [];
 
     /**
-     * All initialized commands @see App::initializeCommands()
-     * @var AbstractCommand[]
-     */
-    private $commands = [];
-
-    /**
      * Console args
      * @var string[]
      */
@@ -60,6 +65,7 @@ class App
     private $argumentHelper;
     private $errorHandler;
     private $output;
+    private $outputFactory;
     private $objectManager;
     private $state;
 
@@ -67,12 +73,14 @@ class App
         ArgumentHelper $argumentHelper,
         ErrorHandler $errorHandler,
         Output $output,
+        OutputFactory $outputFactory,
         ObjectManager $objectManager,
         State $state
     ) {
         $this->argumentHelper = $argumentHelper;
         $this->errorHandler = $errorHandler;
         $this->output = $output;
+        $this->outputFactory = $outputFactory;
         $this->objectManager = $objectManager;
         $this->state = $state;
     }
@@ -86,6 +94,7 @@ class App
         $this->argv = $argv;
 
         if (strncmp(strtoupper(PHP_OS), 'WIN', 3) === 0) {
+            // Windows consoles might not support colored output, notice the user
             $this->output->writeln('Warning: CLI application run on windows might not support colored output! You can use --color-disable');
         }
 
@@ -93,7 +102,7 @@ class App
         $this->initializeCommands();
         // Initialize arguments for the called command
         $this->initializeArguments();
-        // Trigger all initialized arguments, APP-scope first
+        // Trigger all initialized arguments on APP-scope first
         $this->triggerAppArgs();
         // Run all initialized arguments on COMMAND-scope
         $this->exec->triggerArguments();
@@ -120,7 +129,7 @@ class App
      */
     public function addCommand(AbstractCommand $command): self
     {
-        $this->commands[] = $command;
+        self::$commands[] = $command;
 
         return $this;
     }
@@ -168,7 +177,7 @@ class App
 
         $register = $this->objectManager->getSingleton($namespace . '\\' . basename($file, '.php'));
 
-        $this->commands[$register->command] = $register;
+        self::$commands[$register->command] = $register;
     }
 
     /**
@@ -185,8 +194,8 @@ class App
 
         $this->splitAliases();
 
-        // Process all commands on APP-scope
-        foreach ($this->commands as $command) {
+        // Process all arguments on APP-scope
+        foreach (self::$commands as $command) {
             $command->initAppArgs();
         }
         foreach (self::$appArguments as &$argument) {
@@ -222,8 +231,8 @@ class App
         // First entry is always supposed to be the run command
         $command = array_shift($this->argv);
 
-        if (isset($this->commands[$command])) {
-            $this->exec = $this->commands[$command];
+        if (isset(self::$commands[$command])) {
+            $this->exec = self::$commands[$command];
         } else {
             $this->output->error(sprintf('Command "%s" not found.', $command));
             $this->listRegisteredCommands();
@@ -325,6 +334,9 @@ class App
         }
     }
 
+    /**
+     * Trigger callbacks for all passed APP-scoped arguments
+     */
     private function triggerAppArgs(): void
     {
         foreach (self::$appArguments as &$argument) {
@@ -339,12 +351,21 @@ class App
      */
     private function listRegisteredCommands(): void
     {
-        $this->output->nl()->writeln('Available commands:')->nl();
+        /** @var GridOutput $commandGrid */
+        $commandGrid = $this->outputFactory->create(OutputFactory::OUTPUT_GRID);
 
-        foreach ($this->commands as $command => $instance) {
-            $this->output->writeln(str_pad(sprintf('<info>%s</info>', $command), self::PAD_LENGTH_COMMAND) . $instance->help, Output::QUIET);
+        $commandGrid->addColumn('command', 'Command', self::PAD_LENGTH_COMMAND)
+            ->addColumn('description', 'Description')
+            ->suppressColumnLabels()
+            ->addColorScheme('command', 'comment', '')
+            ->addColorScheme('description', 'comment', '');
+
+        foreach (self::$commands as $command => $instance) {
+            $commandGrid->addRow(['command' => $command, 'description' => $instance->help]);
         }
 
+        $this->output->nl()->writeln('Available commands:')->nl();
+        $commandGrid->display();
         $this->argumentHelper->outputAppScopeArgumentsHelp();
     }
 

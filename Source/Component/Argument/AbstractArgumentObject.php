@@ -7,9 +7,7 @@
 namespace Schilffarth\CommandLineInterface\Source\Component\Argument;
 
 use Schilffarth\CommandLineInterface\{
-    Source\App,
     Source\Component\Argument\Types\ComplexArgument,
-    Source\Component\Command\AbstractCommand,
     Source\Component\Interaction\Output\Output
 };
 
@@ -24,16 +22,10 @@ abstract class AbstractArgumentObject
 {
 
     /**
-     * Command where this argument is initialized for
-     * @var AbstractCommand
+     * Command name where this argument is initialized for
+     * @see AbstractCommand::setArgument()
      */
-    public $command;
-
-    /**
-     * Command object this argument has been defined at, usually same as @see App::exec
-     * @var AbstractArgumentObject[]
-     */
-    public $argContainer = [];
+    public $command = '';
 
     /**
      * The name / code of the argument
@@ -87,16 +79,13 @@ abstract class AbstractArgumentObject
      */
     private $handler = [];
 
-    protected $app;
     protected $argumentHelper;
     protected $output;
 
     public function __construct(
-        App $app,
         ArgumentHelper $argumentHelper,
         Output $output
     ) {
-        $this->app = $app;
         $this->argumentHelper = $argumentHelper;
         $this->output = $output;
     }
@@ -189,22 +178,6 @@ abstract class AbstractArgumentObject
     public function isScopeApp(): bool
     {
         return $this->scope === ArgumentHelper::ARGUMENT_SCOPE_APP;
-    }
-
-    /**
-     * Retrieve the arguments container (app or command scoped)
-     */
-    public function getArgContainer(): array
-    {
-        if (!$this->argContainer) {
-            if ($this->isScopeApp()) {
-                $this->argContainer = &App::$appArguments;
-            } else {
-                $this->argContainer = &$this->command->arguments;
-            }
-        }
-
-        return $this->argContainer;
     }
 
 }

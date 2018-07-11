@@ -14,16 +14,13 @@ if (version_compare(PHP_VERSION, '7.2', '<')) {
 
 try {
     require_once dirname(__DIR__) . '/vendor/autoload.php';
-
     if (basename($argv[0]) === basename(__FILE__)) {
         // First entry is the called file (here it would be $argv[0] = "example-executable.php")
         unset($argv[0]);
     }
-
     $objectManager = new \Schilffarth\DependencyInjection\Source\ObjectManager();
     /** @var \Schilffarth\CommandLineInterface\Source\App $app */
     $app = $objectManager->getSingleton(\Schilffarth\CommandLineInterface\Source\App::class);
-
     $app->includeCommandDir(__DIR__ . '/Command', 'Test\Command');
     $app->execute($argv);
 } catch (Exception $e) {

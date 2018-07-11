@@ -11,11 +11,30 @@ use Schilffarth\CommandLineInterface\{
     Source\Component\Interaction\Output\Output
 };
 
-// todo Code this class more nicely
-// It's way too ugly at the moment
-
+/**
+ * todo Clean up this class, it's ugly as fuck
+ *
+ * todo...
+ *
+ * At the moment, you can only set color scheme for each columns label and entries
+ * todo Provide capability to set general label color (respectively coloring by row...)
+ *
+ * You can define some repeating row coloring, for example row 1, 3, 5 colored red, row 2, 4, 6 colored green
+ * todo Repeated row coloring
+ */
 class GridOutput extends AbstractOutputObject
 {
+
+    /**
+     * Types for $repeatScheme
+     */
+    public const REPEAT_ROW = 'row';
+    public const REPEAT_COLUMN = 'column';
+
+    /**
+     * Whether to display column labels or not
+     */
+    private $suppressLabels = false;
 
     /**
      * array(
@@ -60,7 +79,38 @@ class GridOutput extends AbstractOutputObject
      */
     private $colored = [];
 
-    private $output;
+    /**
+     * todo This does not do anything at the moment
+     *
+     * either:
+     *     array(
+     *         'type' => 'column'
+     *         'data' => array(
+     *             'tag_one',
+     *             'tag_two'
+     *         )
+     *     );
+     * or:
+     *     array(
+     *         'type' => 'row'
+     *         'data' => array(
+     *             'tag_one',
+     *             'tag_two',
+     *             'tag_three'
+     *         )
+     *     );
+     *
+     * If type === column
+     *     The given example would wrap the first column entries with <tag_one/>, the second column <tag_two/> and
+     *     iterate over every column and wrap it in the specified order of tags
+     *
+     * If type === row
+     *     The same as for columns, would wrap first row in <tag_one/>, second row <tag_two/>, third row <tag_three/>,
+     *     fourth row <tag_one/>, fifth row <tag_two/> and so on
+     */
+    private $repeatScheme = [];
+
+    public $output;
 
     public function __construct(
         Output $output
@@ -106,61 +156,57 @@ class GridOutput extends AbstractOutputObject
     }
 
     /**
+     * todo This does not do anything at the moment
+     * Register a new repeat scheme, for details @see GridOutput::repeatScheme
+     */
+    public function addRepeatingColorScheme(array $repeat, string $type): self
+    {
+        $this->repeatScheme = [
+            'type' => $type,
+            'data' => $repeat
+        ];
+
+        return $this;
+    }
+
+    /**
+     * Do not display column labels
+     */
+    public function suppressColumnLabels(): self
+    {
+        $this->suppressLabels = true;
+
+        return $this;
+    }
+
+    /**
      * Build and display the grid
      */
-    public function display(): void
+    public function display(int $verbosity = Output::NORMAL): void
     {
-        $output = '';
-
         $this->setPaddings();
 
-        // Column labels / headers
-        foreach ($this->columns as $columnId => $columnData) {
-            if (isset($this->colored[$columnId]) && $this->colored[$columnId]['header']) {
-                // Column label / header should be colored
-                $oldLength = strlen($columnData['label']);
-                // Wrap the label with the desired tags
-                $columnData['label'] = $this->output->write(
-                    sprintf('<%1$s>%2$s</%1$s>', $this->colored[$columnId]['header'], $columnData['label']),
-                    Output::NORMAL,
-                    false,
-                    true
-                );
-                $newLength = strlen($columnData['label']);
-                // Increase the column padding
-                $columnData['pad'] += $newLength - $oldLength;
-            }
+        $output = '';
 
-            $output .= str_pad($columnData['label'] . ' ', $columnData['pad']);
-        }
-
-        $output .= PHP_EOL;
-
-        // Grid rows / data
-        foreach ($this->rows as $row) {
+        if (!$this->suppressLabels) {
+            // Column labels / headers
             foreach ($this->columns as $columnId => $columnData) {
-                if (isset($this->colored[$columnId]) && $this->colored[$columnId]['data']) {
-                    // For comments see the column labels / header formatting "foreach" from line 120
-                    $oldLength = strlen($row[$columnId]);
-                    $row[$columnId] = $this->output->write(
-                        sprintf('<%1$s>%2$s</%1$s>', $this->colored[$columnId]['data'], $row[$columnId]),
-                        Output::NORMAL,
-                        false,
-                        true
-                    );
-                    $newLength = strlen($this->output->write($row[$columnId], Output::NORMAL, false, true));
-                    $columnData['pad'] += $newLength - $oldLength;
-                }
-
-                $output .= str_pad($row[$columnId], $columnData['pad']);
+                $output .= $this->getPaddedStr($this->colored[$columnId] ?? [], $columnData['label'], $columnData['pad'], 'header');
             }
 
             $output .= PHP_EOL;
         }
 
-        $this->output->write($output);
+        // Grid rows / data
+        foreach ($this->rows as $row) {
+            foreach ($this->columns as $columnId => $columnData) {
+                $output .= $this->getPaddedStr($this->colored[$columnId] ?? [], $row[$columnId], $columnData['pad'], 'data');
+            }
 
-        die;
+            $output .= PHP_EOL;
+        }
+
+        $this->output->write($output, $verbosity);
     }
 
     /**
@@ -168,8 +214,13 @@ class GridOutput extends AbstractOutputObject
      */
     private function setPaddings(): void
     {
-        foreach ($this->rows as $row) {
-            foreach ($this->columns as $columnId => $columnData) {
+        foreach ($this->columns as $columnId => $columnData) {
+            if (strlen($columnData['label']) > $columnData['pad']) {
+                // Increase the column width by exceeded label length
+                $this->columns[$columnId]['pad'] = strlen($columnData['label']) + 2;
+            }
+
+            foreach ($this->rows as $row) {
                 $dataLen = strlen($row[$columnId]);
 
                 if ($dataLen > $this->columns[$columnId]['max_len']) {
@@ -177,7 +228,7 @@ class GridOutput extends AbstractOutputObject
                     $this->columns[$columnId]['max_len'] = $dataLen;
                 }
 
-                // The columns should not be sticked together, this ensures at least 2 white spaces added between columns
+                // The columns should not be stick together, this ensures at least 2 white spaces added between columns
                 $dataLen = $dataLen + 2;
 
                 if ($dataLen > $this->columns[$columnId]['pad']) {
@@ -186,6 +237,32 @@ class GridOutput extends AbstractOutputObject
                 }
             }
         }
+    }
+
+    /**
+     * Pad a grid entry and apply color scheme, if specified
+     */
+    private function getPaddedStr(array $color, string $str, int $pad, string $key): string
+    {
+        $output = '';
+
+        if (isset($color[$key]) && $color[$key]) {
+            // Column label / header should be colored
+            $oldLength = strlen($str);
+
+            // Wrap the label with the desired tags
+            $str = $this->output->write(
+                sprintf('<%1$s>%2$s</%1$s>', $color[$key], $str),
+                Output::NORMAL,
+                false,
+                true
+            );
+
+            // Increase the column padding
+            $pad += strlen($str) - $oldLength;
+        }
+
+        return $output . str_pad($str . ' ', $pad);
     }
 
 }

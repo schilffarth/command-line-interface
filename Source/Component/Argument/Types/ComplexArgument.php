@@ -7,7 +7,6 @@
 namespace Schilffarth\CommandLineInterface\Source\Component\Argument\Types;
 
 use Schilffarth\CommandLineInterface\{
-    Source\App,
     Source\Component\Argument\AbstractArgumentObject,
     Source\Component\Argument\ArgumentHelper,
     Source\Component\Interaction\Input\InputFactory,
@@ -37,12 +36,11 @@ class ComplexArgument extends AbstractArgumentObject
     private $inputFactory;
 
     public function __construct(
-        App $app,
         ArgumentHelper $argumentHelper,
         Output $output,
         InputFactory $inputFactory
     ) {
-        parent::__construct($app, $argumentHelper, $output);
+        parent::__construct($argumentHelper, $output);
 
         $this->inputFactory = $inputFactory;
     }
