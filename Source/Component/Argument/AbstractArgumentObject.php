@@ -4,10 +4,10 @@
  * @license     https://opensource.org/licenses/GPL-3.0 General Public License (GNU 3.0)
  */
 
-namespace Schilffarth\CommandLineInterface\Source\Component\Argument;
+namespace Schilffarth\Console\Source\Component\Argument;
 
-use Schilffarth\CommandLineInterface\{
-    Source\Component\Argument\Types\ComplexArgument,
+use Schilffarth\Console\{
+    Source\Component\Argument\Types\Complex,
     Source\Component\Interaction\Output\Output
 };
 
@@ -22,48 +22,42 @@ abstract class AbstractArgumentObject
 {
 
     /**
-     * Command name where this argument is initialized for
-     * @see AbstractCommand::setArgument()
-     */
-    public $command = '';
-
-    /**
      * The name / code of the argument
      */
-    public $name = '';
+    protected $name = '';
 
     /**
      * The arguments description is displayed when your command is called with the parameter --help or its alias -h
      */
-    public $description = '';
+    protected $description = '';
 
     /**
      * All registered aliases for the argument
      * @var string[]
      */
-    public $aliases = [];
+    protected $aliases = [];
 
     /**
      * Specified arguments that will be excluded by the usage of this argument
      * @var string[]
      */
-    public $excludes = [];
+    protected $excludes = [];
 
     /**
      * Arguments that are required to be present in combination with this argument
      * @var string[]
      */
-    public $requires = [];
+    protected $requires = [];
 
     /**
      * Boolean, whether the command is called with this argument or not
      */
-    public $passed = false;
+    protected $passed = false;
 
     /**
      * If the argument is passed, this property is set to the argument's key of the global $argv array
      */
-    public $consoleArgvKey = 0;
+    protected $consoleArgvKey = 0;
 
     /**
      * Scope of the argument, arguments bound to the app scope will be processed before the desired command is
@@ -77,7 +71,7 @@ abstract class AbstractArgumentObject
      * Handlers will be called one by one, unless a priority has been defined
      * @var callable[]
      */
-    private $handler = [];
+    protected $handler = [];
 
     protected $argumentHelper;
     protected $output;
@@ -93,9 +87,9 @@ abstract class AbstractArgumentObject
     /**
      * Initialize / build up your argument - $this->passed is set before launch is called
      * With this function you can introduce special logic for your argument, such as complex type handling
-     * For an example @see ComplexArgument::launch()
+     * For an example @see Complex::launch()
      */
-    abstract public function launch(array &$argv): void;
+    abstract public function launch(): void;
 
     /**
      * Argument should be created with @see ArgumentFactory::create()
@@ -103,21 +97,11 @@ abstract class AbstractArgumentObject
      */
     public function create(string $name, string $description, string ...$aliases)
     {
-        $this->name = $this->argumentHelper->trimProperty($name);
-        $this->description = $description;
+        $this->setName($name)
+            ->setDescription($description);
 
         foreach ($aliases as $alias) {
-            $trimmedAlias = $this->argumentHelper->trimProperty($alias, ArgumentHelper::STR_LEN_ALIAS);
-
-            if (strlen($trimmedAlias) > 2) {
-                $this->output->error(sprintf('Failed to create argument %s. Passed alias %s exceeds maximum size of one character (excluding hyphen identifier).', $this->name, $trimmedAlias));
-                exit;
-            } elseif (strlen($trimmedAlias) < 2) {
-                $this->output->error(sprintf('Failed to create argument %s. Passed alias %s must match size of one character (excluding hyphen identifier).', $this->name, $trimmedAlias));
-                exit;
-            }
-
-            $this->aliases[] = $trimmedAlias;
+            $this->addAlias($alias);
         }
     }
 
@@ -143,23 +127,158 @@ abstract class AbstractArgumentObject
     }
 
     /**
+     * Set the name of your argument
+     */
+    public function setName(string $name): self
+    {
+        $this->name = $this->argumentHelper->trimProperty($name);
+
+        return $this;
+    }
+
+    /**
+     * Retrieve the argument name, preceded by double hyphen
+     */
+    public function getName(): string
+    {
+        return $this->name;
+    }
+
+    public function setDescription(string $description): self
+    {
+        $this->description = $description;
+
+        return $this;
+    }
+
+    public function getDescription(): string
+    {
+        return $this->description;
+    }
+
+    public function setAlias(string $alias): self
+    {
+        $this->aliases[] = $alias;
+
+        return $this;
+    }
+
+    public function getAliases(): array
+    {
+        return $this->aliases;
+    }
+
+    /**
+     * Add an alias for the argument
+     */
+    public function addAlias(string $alias): self
+    {
+        $trimmedAlias = $this->argumentHelper->trimProperty($alias, ArgumentHelper::STR_LEN_ALIAS);
+
+        if (strlen($trimmedAlias) > 2) {
+            $this->output->error(sprintf('Failed to create argument %s. Passed alias %s exceeds maximum size of one character (excluding hyphen identifier).', $this->getName(), $trimmedAlias));
+            exit;
+        } elseif (strlen($trimmedAlias) < 2) {
+            $this->output->error(sprintf('Failed to create argument %s. Passed alias %s must match size of one character (excluding hyphen identifier).', $this->getName(), $trimmedAlias));
+            exit;
+        }
+
+        $this->setAlias($trimmedAlias);
+
+        return $this;
+    }
+
+    /**
+     * Removes an alias from the argument
+     * This can be useful when you want to remove an predefined alias for example debug mode (d) and assign the alias d
+     * to a custom argument that you've set for your command
+     */
+    public function removeAlias(string $alias): self
+    {
+        $key = array_search($alias, $this->aliases);
+
+        if ($key !== false) {
+            // Alias exists, remove it
+            unset($this->aliases[$key]);
+        }
+
+        return $this;
+    }
+
+    /**
      * Set an exclude for this argument - None of the initialized exclude arguments are valid to be passed
      */
-    public function excludes(string $argName): self
+    public function addExcludedArgument(string $argName): self
     {
         $this->excludes[] = $this->argumentHelper->trimProperty($argName);
 
         return $this;
     }
 
+    public function getExcludes(): array
+    {
+        return $this->excludes;
+    }
+
     /**
      * Set a requirement when this argument is passed
      */
-    public function requires(string $argName): self
+    public function addRequiredArgument(string $argName): self
     {
         $this->requires[] = $this->argumentHelper->trimProperty($argName);
 
         return $this;
+    }
+
+    public function getRequires(): array
+    {
+        return $this->requires;
+    }
+
+    /**
+     * Update whether argument has been passed or not
+     */
+    public function setPassed(bool $passed): self
+    {
+        $this->passed = $passed;
+
+        return $this;
+    }
+
+    /**
+     * Check whether the argument has been passed to the run command
+     */
+    public function isPassed(): bool
+    {
+        return $this->passed;
+    }
+
+    public function setConsoleArgvKey(int $consoleArgvKey): self
+    {
+        $this->consoleArgvKey = $consoleArgvKey;
+
+        return $this;
+    }
+
+    /**
+     * The key of this argument in the global $argv array
+     */
+    public function getConsoleArgvKey(): int
+    {
+        return $this->consoleArgvKey;
+    }
+
+    public function getScope(): int
+    {
+        return $this->scope;
+    }
+
+    /**
+     * Whether the arguments scope is APP or COMMAND
+     */
+    public function isGlobalOption(): bool
+    {
+        return $this->scope === ArgumentHelper::ARGUMENT_SCOPE_GLOBAL_OPTION;
     }
 
     /**
@@ -170,14 +289,6 @@ abstract class AbstractArgumentObject
         foreach ($this->handler as $handle) {
             call_user_func($handle);
         }
-    }
-
-    /**
-     * Whether the arguments scope is APP or COMMAND
-     */
-    public function isScopeApp(): bool
-    {
-        return $this->scope === ArgumentHelper::ARGUMENT_SCOPE_APP;
     }
 
 }

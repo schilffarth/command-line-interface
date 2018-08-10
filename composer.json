@@ -1,20 +1,14 @@
 {
-  "name": "schilffarth/command-line-interface",
-  "description": "Command line interface for PHP",
-  "url": "https://github.com/schilffarth/command-line-interface",
+  "name": "schilffarth/console",
+  "description": "Command line interface / console application for PHP",
+  "url": "https://github.com/schilffarth/console",
   "license": "GPL-3.0",
   "require": {
-    "php": "^7.2",
-    "schilffarth/dependency-injection": "^1.0.0",
-    "schilffarth/exception": "^1.0.0"
+    "php": "^7.2"
   },
-  "repositories": [
-    {"type": "git", "url": "https://github.com/schilffarth/dependency-injection"},
-    {"type": "git", "url": "https://github.com/schilffarth/exception"}
-  ],
   "autoload": {
     "psr-4": {
-      "Schilffarth\\CommandLineInterface\\": ""
+      "Schilffarth\\Console\\": ""
     }
   }
 }

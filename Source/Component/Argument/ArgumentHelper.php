@@ -4,13 +4,12 @@
  * @license     https://opensource.org/licenses/GPL-3.0 General Public License (GNU 3.0)
  */
 
-namespace Schilffarth\CommandLineInterface\Source\Component\Argument;
+namespace Schilffarth\Console\Source\Component\Argument;
 
-use Schilffarth\CommandLineInterface\{
-    Source\App,
+use Schilffarth\Console\{
     Source\Component\Interaction\Output\Output,
     Source\Component\Interaction\Output\OutputFactory,
-    Source\Component\Interaction\Output\Types\GridOutput
+    Source\Component\Interaction\Output\Types\Grid
 };
 
 class ArgumentHelper
@@ -25,7 +24,7 @@ class ArgumentHelper
     /**
      * Arguments defined at scope APP will be processed before any command-related stuff is done
      */
-    public const ARGUMENT_SCOPE_APP = 1;
+    public const ARGUMENT_SCOPE_GLOBAL_OPTION = 1;
 
     /**
      * Arguments defined at scope COMMAND will be processed after the run command has been calculated and arguments have
@@ -83,26 +82,11 @@ class ArgumentHelper
     }
 
     /**
-     * Display a list describing all general arguments on APP-scope
-     */
-    public function outputAppScopeArgumentsHelp(): void
-    {
-        $grid = $this->createArgumentGrid();
-
-        foreach (App::$appArguments as $argument) {
-            $grid = $this->argumentGridRow($argument, $grid);
-        }
-
-        $this->output->nl()->info('Console options:')->nl();
-        $grid->display();
-    }
-
-    /**
      * Create the basic grid structure for an argument table
      */
-    public function createArgumentGrid(): GridOutput
+    public function createArgumentGrid(): Grid
     {
-        /** @var GridOutput $grid */
+        /** @var Grid $grid */
         $grid = $this->outputFactory->create(OutputFactory::OUTPUT_GRID);
 
         $grid->addColumn('name', 'Argument', self::PAD_LENGTH_ARGUMENT)
@@ -119,18 +103,18 @@ class ArgumentHelper
     /**
      * Outputs a line in the argument-grid-style
      */
-    public function argumentGridRow(AbstractArgumentObject $argument, GridOutput $grid): GridOutput
+    public function argumentGridRow(AbstractArgumentObject $argument, Grid $grid): Grid
     {
         $aliasesStr = '';
 
-        foreach ($argument->aliases as $alias) {
+        foreach ($argument->getAliases() as $alias) {
             $aliasesStr .= $alias . '  ';
         }
 
         $grid->addRow([
-            'name' => $argument->name,
+            'name' => $argument->getName(),
             'aliases' => $aliasesStr,
-            'description' => $argument->description
+            'description' => $argument->getDescription()
         ]);
 
         return $grid;

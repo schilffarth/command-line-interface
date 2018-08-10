@@ -1,12 +1,12 @@
 <?php
 namespace Test\Command;
 
-use Schilffarth\CommandLineInterface\{
-    Source\Component\Argument\Types\ComplexArgument,
+use Schilffarth\Console\{
+    Source\Component\Argument\Types\Complex,
     Source\Component\Command\AbstractCommand,
     Source\Component\Argument\ArgumentFactory,
     Source\Component\Interaction\Input\InputFactory,
-    Source\Component\Interaction\Output\Types\GridOutput
+    Source\Component\Interaction\Output\Types\Grid
 };
 
 class Example extends AbstractCommand
@@ -16,9 +16,9 @@ class Example extends AbstractCommand
 
     public $help = 'The command is an example of how to add your custom command with Schilffarth command line interface application.';
 
-    public function initCommandArgs(): void
+    public function initializeArguments(): void
     {
-        /** @var ComplexArgument $test */
+        /** @var Complex $test */
         $test = $this->argumentFactory->create(
             ArgumentFactory::ARGUMENT_COMPLEX,
             'test',
@@ -31,7 +31,7 @@ class Example extends AbstractCommand
     public function run(): bool
     {
         try {
-            /** @var GridOutput $testOutput */
+            /** @var Grid $testOutput */
             // $this->error(sprintf('Here is --test / test arguments value: %s', $this->getArgument('test')->getValue()));
 
             $testInput = $this->inputFactory->create(InputFactory::INPUT_LABELED, 'Please type in something...');

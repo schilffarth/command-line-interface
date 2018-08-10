@@ -4,16 +4,19 @@
  * @license     https://opensource.org/licenses/GPL-3.0 General Public License (GNU 3.0)
  */
 
-namespace Schilffarth\CommandLineInterface\Source\Component\Interaction\Output;
+namespace Schilffarth\Console\Source\Component\Interaction\Output;
 
-use Schilffarth\CommandLineInterface\{
-    Source\AbstractFactory,
-    Source\Component\Interaction\Output\Types\GridOutput
+use Schilffarth\Console\{
+    Source\App\AbstractFactory,
+    Source\Component\Interaction\Output\Types\Grid,
+    Source\Component\Interaction\Output\Types\ProcessBar
 };
 
 class OutputFactory extends AbstractFactory
 {
 
-    public const OUTPUT_GRID = GridOutput::class;
+    public const OUTPUT_GRID = Grid::class;
+
+    public const OUTPUT_PROCESS_BAR = ProcessBar::class;
 
 }

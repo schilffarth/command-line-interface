@@ -4,11 +4,9 @@
  * @license     https://opensource.org/licenses/GPL-3.0 General Public License (GNU 3.0)
  */
 
-namespace Schilffarth\CommandLineInterface\Source;
+namespace Schilffarth\Console\Source\App;
 
-use Schilffarth\DependencyInjection\{
-    Source\ObjectManager
-};
+use Schilffarth\Console\DependencyInjection\ObjectManager;
 
 abstract class AbstractFactory
 {
@@ -28,7 +26,9 @@ abstract class AbstractFactory
     {
         $object = $this->objectManager->createObject($type);
 
-        $object->create(...$args);
+        if (method_exists($object, 'create')) {
+            $object->create(...$args);
+        }
 
         return $object;
     }

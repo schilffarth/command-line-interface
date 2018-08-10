@@ -4,14 +4,20 @@
  * @license     https://opensource.org/licenses/GPL-3.0 General Public License (GNU 3.0)
  */
 
-namespace Schilffarth\CommandLineInterface\Source;
+namespace Schilffarth\Console\Source\App;
 
-use Schilffarth\CommandLineInterface\{
+use Schilffarth\Console\{
     Source\Component\Interaction\Output\Output
 };
 
 class State
 {
+
+    /**
+     * Consoles $argv array, containing all passed parameters
+     * @var string[]
+     */
+    public static $argv = [];
 
     /**
      * Command exit status - Whether it has run successfully or failed

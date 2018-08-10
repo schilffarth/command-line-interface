@@ -4,9 +4,9 @@
  * @license     https://opensource.org/licenses/GPL-3.0 General Public License (GNU 3.0)
  */
 
-namespace Schilffarth\CommandLineInterface\Source\Component\Interaction\Output\Types;
+namespace Schilffarth\Console\Source\Component\Interaction\Output\Types;
 
-use Schilffarth\CommandLineInterface\{
+use Schilffarth\Console\{
     Source\Component\Interaction\Output\AbstractOutputObject,
     Source\Component\Interaction\Output\Output
 };
@@ -22,7 +22,7 @@ use Schilffarth\CommandLineInterface\{
  * You can define some repeating row coloring, for example row 1, 3, 5 colored red, row 2, 4, 6 colored green
  * todo Repeated row coloring
  */
-class GridOutput extends AbstractOutputObject
+class Grid extends AbstractOutputObject
 {
 
     /**
@@ -55,7 +55,7 @@ class GridOutput extends AbstractOutputObject
     /**
      * array(
      *     array(
-     *         // Keys are mapped to the column in @see GridOutput::columns
+     *         // Keys are mapped to the column in @see Grid::columns
      *         'id_one' => 'Test value for first column',
      *         'id_two' => 'Second column value here'
      *     ),
@@ -119,7 +119,7 @@ class GridOutput extends AbstractOutputObject
     }
 
     /**
-     * Adds a column to @see GridOutput::columns
+     * Adds a column to @see Grid::columns
      */
     public function addColumn(string $id, string $label = '', int $pad = 0): self
     {
@@ -130,7 +130,7 @@ class GridOutput extends AbstractOutputObject
 
 
     /**
-     * Adds a row to @see GridOutput::rows
+     * Adds a row to @see Grid::rows
      */
     public function addRow(array $args): self
     {
@@ -146,7 +146,7 @@ class GridOutput extends AbstractOutputObject
     }
 
     /**
-     * Set an output style for the column, format @see GridOutput::colored
+     * Set an output style for the column, format @see Grid::colored
      */
     public function addColorScheme(string $columnId, string $headerTag, string $dataTag): self
     {
@@ -157,7 +157,7 @@ class GridOutput extends AbstractOutputObject
 
     /**
      * todo This does not do anything at the moment
-     * Register a new repeat scheme, for details @see GridOutput::repeatScheme
+     * Register a new repeat scheme, for details @see Grid::repeatScheme
      */
     public function addRepeatingColorScheme(array $repeat, string $type): self
     {

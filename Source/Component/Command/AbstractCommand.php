@@ -4,22 +4,18 @@
  * @license     https://opensource.org/licenses/GPL-3.0 General Public License (GNU 3.0)
  */
 
-namespace Schilffarth\CommandLineInterface\Source\Component\Command;
+namespace Schilffarth\Console\Source\Component\Command;
 
-use Schilffarth\CommandLineInterface\{
-    Exceptions\ArgumentNotFoundException,
-    Source\App,
+use Schilffarth\Console\{
+    Exception\ArgumentNotFoundException,
+    Source\App\Application,
     Source\Component\Argument\AbstractArgumentObject,
     Source\Component\Argument\ArgumentFactory,
     Source\Component\Argument\ArgumentHelper,
-    Source\Component\Argument\Types\GlobalArgument,
     Source\Component\Interaction\Input\InputFactory,
     Source\Component\Interaction\Output\Output,
     Source\Component\Interaction\Output\OutputFactory,
-    Source\State
-};
-use Schilffarth\Exception\{
-    Handling\ErrorHandler
+    Source\App\ErrorHandler
 };
 
 /**
@@ -53,7 +49,7 @@ abstract class AbstractCommand
     protected $outputFactory;
 
     public function __construct(
-        App $app,
+        Application $app,
         ArgumentFactory $argumentFactory,
         ArgumentHelper $argumentHelper,
         ErrorHandler $errorHandler,
@@ -76,112 +72,11 @@ abstract class AbstractCommand
     abstract public function run(): bool;
 
     /**
-     * Register arguments and associated handlers for APP scope
+     * Register arguments and associated handlers for COMMAND scope
      * This method is run BEFORE command-specific arguments or commands themselves are processed or triggered
      */
-    public function initAppArgs(): void
+    public function initializeArguments(): void
     {
-        /** COLORED OUTPUT - Whether to display console colored output */
-
-        /** @var GlobalArgument $disableColoredOutput */
-        $disableColoredOutput = $this->argumentFactory->create(
-            ArgumentFactory::ARGUMENT_GLOBAL,
-            'color-disable',
-            'Disable colors displayed with the console output. Recommended for Windows PowerShell.'
-        );
-        $disableColoredOutput->registerHandler([$this, 'disableColoredOutput']);
-        // Set the key -99 in order to prioritize this argument as the very first
-        $this->setArgument($disableColoredOutput, -99);
-
-        /** HELP */
-
-        /** @var GlobalArgument $help */
-        $help = $this->argumentFactory->create(
-            ArgumentFactory::ARGUMENT_GLOBAL,
-            'help',
-            'Get detailed help for the command. Displays further information and example usages.',
-            'h'
-        );
-        $help->registerHandler([$this, 'triggerHelp']);
-        // Set the key -98 in order to prioritize this argument secondly
-        $this->setArgument($help, -98);
-
-        /** VERBOSITY LEVELS */
-
-        /** @var GlobalArgument $debug */
-        // Debug
-        $debug = $this->argumentFactory->create(
-            ArgumentFactory::ARGUMENT_GLOBAL,
-            'debug',
-            'Enable debugging. Displays all messages.',
-            'd'
-        );
-        $debug->registerHandler([$this, 'setVerbosityDebug'])
-            ->excludes('quiet');
-        $this->setArgument($debug);
-
-        /** @var GlobalArgument $quiet */
-        // Quiet
-        $quiet = $this->argumentFactory->create(
-            ArgumentFactory::ARGUMENT_GLOBAL,
-            'quiet',
-            'Suppress both normal and debugging messages. Only errors will be outputted.',
-            'q'
-        );
-        $quiet->registerHandler([$this, 'setVerbosityQuiet'])
-            ->excludes('debug');
-        $this->setArgument($quiet);
-    }
-
-    /**
-     * Register arguments and associated handlers for COMMAND scope
-     */
-    public function initCommandArgs(): void
-    {
-    }
-
-    /**
-     * Callback if --help is passed
-     */
-    public function triggerHelp(): void
-    {
-        $grid = $this->argumentHelper->createArgumentGrid();
-
-        foreach ($this->arguments as $argument) {
-            $this->argumentHelper->argumentGridRow($argument, $grid);
-        }
-
-        $this->output->nl()->info('Command arguments:')->nl();
-        $grid->display();
-        $this->argumentHelper->outputAppScopeArgumentsHelp();
-
-        // Do not run any
-        State::$success = true;
-        exit;
-    }
-
-    /**
-     * Callback if --debug is passed
-     */
-    public function setVerbosityDebug(): void
-    {
-        State::$verbosity = Output::DEBUG;
-    }
-
-    /**
-     * Callback if --quiet is passed
-     */
-    public function setVerbosityQuiet(): void
-    {
-        State::$verbosity = Output::QUIET;
-    }
-
-    /**
-     * Callback if --color-disable is passed
-     */
-    public function disableColoredOutput(): void
-    {
-        State::$colorDisabled = true;
     }
 
     /**
@@ -190,7 +85,7 @@ abstract class AbstractCommand
     public function triggerArguments(): void
     {
         foreach ($this->arguments as $argument) {
-            if ($argument->passed) {
+            if ($argument->isPassed()) {
                 $argument->trigger();
             }
         }
@@ -224,22 +119,18 @@ abstract class AbstractCommand
      */
     protected function setArgument(AbstractArgumentObject $arg, int $order = null): self
     {
-        // Saved just to provide more ease in extending this even more in possible future updates - Do not remove this
-        // (as it's obviously unnecessary right now, you could access it in line 242 straight with $this->>command
-        $arg->command = $this->command;
-
         // Get the container for given argument
-        if ($arg->isScopeApp()) {
-            $container = &App::$appArguments;
+        if ($arg->isGlobalOption()) {
+            $container = &$this->app->getGlobalOptionsContainer()->getContainer();
 
-            foreach (App::$appArguments as $argument) {
-                if ($argument->name === $arg->name) {
+            foreach ($container as $argument) {
+                if ($argument->getName() === $arg->getName()) {
                     // The argument has already been registered, skip it
                     return $this;
                 }
             }
         } else {
-            $container = &App::$commands[$arg->command]->arguments;
+            $container = &$this->app->getCommandsContainer()->getRunCommand()->arguments;
         }
 
         // Set arg
@@ -248,7 +139,7 @@ abstract class AbstractCommand
             $container[] = $arg;
         } else {
             if (isset($container[$order])) {
-                $this->error(sprintf('Cannot initialize argument %s properly ordered as %d. The given order has already been set.', $arg->name, $order));
+                $this->error(sprintf('Cannot initialize argument %s properly ordered as %d. The given order has already been set.', $arg->getName(), $order));
                 $container[] = $arg;
             } else {
                 // Add argument at desired order
@@ -261,7 +152,8 @@ abstract class AbstractCommand
 
     /**
      * Retrieve an argument by its name
-     * @throws ArgumentNotFoundException
+     *
+     * @throws \Schilffarth\Console\Exception\ArgumentNotFoundException
      */
     protected function getArgument(string $name): AbstractArgumentObject
     {

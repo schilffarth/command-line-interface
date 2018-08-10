@@ -4,14 +4,14 @@
  * @license     https://opensource.org/licenses/GPL-3.0 General Public License (GNU 3.0)
  */
 
-namespace Schilffarth\CommandLineInterface\Source\Component\Interaction\Input\Types;
+namespace Schilffarth\Console\Source\Component\Interaction\Input\Types;
 
-use Schilffarth\CommandLineInterface\{
+use Schilffarth\Console\{
     Source\Component\Interaction\Input\AbstractInputObject,
     Source\Component\Interaction\Output\Output
 };
 
-class LabeledInput extends AbstractInputObject
+class Labeled extends AbstractInputObject
 {
 
     /**
@@ -32,10 +32,7 @@ class LabeledInput extends AbstractInputObject
 
     public function request(): parent
     {
-        if (!$this->output->verbosityDisallowsOutput($this->labelVerbosity)) {
-            $this->output->writeln($this->label);
-        }
-
+        $this->output->writeln($this->label, $this->labelVerbosity);
         return parent::request();
     }
 

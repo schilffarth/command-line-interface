@@ -4,22 +4,22 @@
  * @license     https://opensource.org/licenses/GPL-3.0 General Public License (GNU 3.0)
  */
 
-namespace Schilffarth\CommandLineInterface\Source\Component\Argument;
+namespace Schilffarth\Console\Source\Component\Argument;
 
-use Schilffarth\CommandLineInterface\{
-    Source\AbstractFactory,
-    Source\Component\Argument\Types\ComplexArgument,
-    Source\Component\Argument\Types\GlobalArgument,
-    Source\Component\Argument\Types\SimpleArgument
+use Schilffarth\Console\{
+    Source\App\AbstractFactory,
+    Source\Component\Argument\Types\Complex,
+    Source\Component\Argument\Types\GlobalOption,
+    Source\Component\Argument\Types\Flag
 };
 
 class ArgumentFactory extends AbstractFactory
 {
 
-    public const ARGUMENT_SIMPLE = SimpleArgument::class;
+    public const ARGUMENT_SIMPLE = Flag::class;
 
-    public const ARGUMENT_COMPLEX = ComplexArgument::class;
+    public const ARGUMENT_COMPLEX = Complex::class;
 
-    public const ARGUMENT_GLOBAL = GlobalArgument::class;
+    public const ARGUMENT_GLOBAL = GlobalOption::class;
 
 }

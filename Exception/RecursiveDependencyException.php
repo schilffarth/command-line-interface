@@ -4,13 +4,9 @@
  * @license     https://opensource.org/licenses/GPL-3.0 General Public License (GNU 3.0)
  */
 
-namespace Schilffarth\CommandLineInterface\Exceptions;
+namespace Schilffarth\Console\Exception;
 
-use Schilffarth\Exception\{
-    Exceptions\Exception
-};
-
-class ArgumentNotFoundException extends Exception
+class RecursiveDependencyException extends \Exception
 {
 
 }

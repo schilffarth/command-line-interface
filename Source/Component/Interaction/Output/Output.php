@@ -4,10 +4,10 @@
  * @license     https://opensource.org/licenses/GPL-3.0 General Public License (GNU 3.0)
  */
 
-namespace Schilffarth\CommandLineInterface\Source\Component\Interaction\Output;
+namespace Schilffarth\Console\Source\Component\Interaction\Output;
 
-use Schilffarth\CommandLineInterface\{
-    Source\State
+use Schilffarth\Console\{
+    Source\App\State
 };
 
 class Output

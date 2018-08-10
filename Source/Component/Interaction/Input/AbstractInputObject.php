@@ -4,9 +4,9 @@
  * @license     https://opensource.org/licenses/GPL-3.0 General Public License (GNU 3.0)
  */
 
-namespace Schilffarth\CommandLineInterface\Source\Component\Interaction\Input;
+namespace Schilffarth\Console\Source\Component\Interaction\Input;
 
-use Schilffarth\CommandLineInterface\{
+use Schilffarth\Console\{
     Source\Component\Interaction\Output\Output
 };
 

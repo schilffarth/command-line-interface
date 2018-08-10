@@ -4,16 +4,16 @@
  * @license     https://opensource.org/licenses/GPL-3.0 General Public License (GNU 3.0)
  */
 
-namespace Schilffarth\CommandLineInterface\Source\Component\Interaction\Input;
+namespace Schilffarth\Console\Source\Component\Interaction\Input;
 
-use Schilffarth\CommandLineInterface\{
-    Source\AbstractFactory,
-    Source\Component\Interaction\Input\Types\LabeledInput
+use Schilffarth\Console\{
+    Source\App\AbstractFactory,
+    Source\Component\Interaction\Input\Types\Labeled
 };
 
 class InputFactory extends AbstractFactory
 {
 
-    public const INPUT_LABELED = LabeledInput::class;
+    public const INPUT_LABELED = Labeled::class;
 
 }

@@ -4,9 +4,9 @@
  * @license     https://opensource.org/licenses/GPL-3.0 General Public License (GNU 3.0)
  */
 
-namespace Schilffarth\Console\Source\Component\Interaction\Output;
+namespace Schilffarth\Console\Exception;
 
-class AbstractOutputObject
+class ClassNotInstantiableException extends \Exception
 {
 
 }
